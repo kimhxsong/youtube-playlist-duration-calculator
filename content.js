@@ -1,5 +1,42 @@
 // YouTube 플레이리스트 총 재생시간 계산 익스텐션
 
+function detectLanguage() {
+  // YouTube 페이지의 언어 감지
+  const htmlLang = document.documentElement.lang;
+  if (htmlLang && htmlLang.startsWith("ko")) {
+    return "ko";
+  }
+  return "en";
+}
+
+function getTimeUnits(lang) {
+  const units = {
+    ko: {
+      hour: "시간",
+      minute: "분",
+      second: "초",
+    },
+    en: {
+      hour: "h",
+      minute: "m",
+      second: "s",
+    },
+  };
+  return units[lang] || units.en;
+}
+
+function getLocalizedText(lang) {
+  const texts = {
+    ko: {
+      totalPlaytime: "총 재생시간:",
+    },
+    en: {
+      totalPlaytime: "Total duration:",
+    },
+  };
+  return texts[lang] || texts.en;
+}
+
 function parseTimeToSeconds(timeString) {
   // "4:14", "1:30:45" 형태의 시간을 초 단위로 변환
   const parts = timeString.split(":").map(Number);
@@ -20,34 +57,145 @@ function formatSecondsToTime(totalSeconds) {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
+  // 언어별 단위 텍스트
+  const lang = detectLanguage();
+  const units = getTimeUnits(lang);
+
   if (hours > 0) {
-    return `${hours}시간 ${minutes}분 ${seconds}초`;
+    return `${hours}${units.hour} ${minutes}${units.minute} ${seconds}${units.second}`;
   } else {
-    return `${minutes}분 ${seconds}초`;
+    return `${minutes}${units.minute} ${seconds}${units.second}`;
+  }
+}
+
+function displayTotalTimeInUI(totalSeconds) {
+  // 기존 시간 표시 요소가 있으면 제거
+  const existingElement = document.getElementById("playlist-total-time");
+  if (existingElement) {
+    existingElement.remove();
+  }
+
+  // 플레이리스트 메타데이터 영역 찾기 (스크린샷의 "동영상 14개" 부분)
+  let targetContainer = null;
+
+  // 다양한 선택자로 시도
+  const possibleSelectors = [
+    "ytd-playlist-header-renderer #stats",
+    "ytd-playlist-header-renderer .metadata-stats",
+    "#stats.ytd-playlist-header-renderer",
+    "ytd-playlist-header-renderer yt-formatted-string",
+    "#header ytd-playlist-header-renderer",
+  ];
+
+  for (const selector of possibleSelectors) {
+    const elements = document.querySelectorAll(selector);
+    for (const element of elements) {
+      if (
+        element.textContent.includes("동영상") &&
+        element.textContent.includes("개")
+      ) {
+        targetContainer = element;
+        break;
+      }
+    }
+    if (targetContainer) break;
+  }
+
+  // 대안: "동영상 XX개" 텍스트가 포함된 요소 직접 검색
+  if (!targetContainer) {
+    const allElements = document.querySelectorAll("*");
+    for (const element of allElements) {
+      const text = element.textContent.trim();
+      if (text.includes("동영상") && text.includes("개") && text.length < 50) {
+        targetContainer = element;
+        break;
+      }
+    }
+  }
+
+  if (targetContainer) {
+    // 전체 재생시간 표시 요소 생성
+    const timeElement = document.createElement("div");
+    timeElement.id = "playlist-total-time";
+
+    // 시블링 요소의 computed style 복사
+    const computedStyle = window.getComputedStyle(targetContainer);
+    timeElement.style.cssText = `
+      color: ${computedStyle.color};
+      font-family: ${computedStyle.fontFamily};
+      font-size: ${computedStyle.fontSize};
+      font-weight: ${computedStyle.fontWeight};
+      line-height: ${computedStyle.lineHeight};
+      margin-top: 4px;
+      display: block;
+    `;
+
+    // 원본 클래스도 복사 (추가 스타일링을 위해)
+    if (targetContainer.className) {
+      timeElement.className = targetContainer.className;
+    }
+
+    const lang = detectLanguage();
+    const localizedText = getLocalizedText(lang);
+    timeElement.textContent = `${
+      localizedText.totalPlaytime
+    } ${formatSecondsToTime(totalSeconds)}`;
+
+    // "동영상 XX개" 요소 아래에 새로운 줄로 추가
+    targetContainer.parentNode.insertBefore(
+      timeElement,
+      targetContainer.nextSibling
+    );
+  } else {
+    // 최후의 수단: 헤더 영역에 별도 div로 추가
+    const header =
+      document.querySelector("ytd-playlist-header-renderer") ||
+      document.querySelector("#header");
+    if (header) {
+      const timeElement = document.createElement("div");
+      timeElement.id = "playlist-total-time";
+      timeElement.style.cssText = `
+        color: #030303;
+        font-size: 14px;
+        margin-top: 8px;
+        padding-left: 24px;
+        font-family: Roboto, Arial, sans-serif;
+      `;
+      timeElement.textContent = `${formatSecondsToTime(totalSeconds)}`;
+      header.appendChild(timeElement);
+    }
   }
 }
 
 function findCurrentVideoIndex() {
-  let isPlaylistPage = window.location.pathname.includes('/playlist');
+  let isPlaylistPage = window.location.pathname.includes("/playlist");
 
   if (isPlaylistPage) {
     // 플레이리스트 페이지에서 현재 재생 중인 비디오 찾기
-    const playlistVideos = document.querySelectorAll("ytd-playlist-video-renderer");
+    const playlistVideos = document.querySelectorAll(
+      "ytd-playlist-video-renderer"
+    );
     for (let i = 0; i < playlistVideos.length; i++) {
       const item = playlistVideos[i];
       // "지금 재생 중" 텍스트나 재생 상태 확인
       if (
-        item.querySelector("ytd-thumbnail-overlay-now-playing-renderer:not([hidden])") ||
+        item.querySelector(
+          "ytd-thumbnail-overlay-now-playing-renderer:not([hidden])"
+        ) ||
         item.querySelector('[aria-label*="지금 재생"]') ||
         item.querySelector('yt-formatted-string:contains("지금 재생 중")') ||
-        item.querySelector('#overlay-text')?.textContent.includes('지금 재생 중')
+        item
+          .querySelector("#overlay-text")
+          ?.textContent.includes("지금 재생 중")
       ) {
         return i;
       }
     }
   } else {
     // 플레이리스트 패널에서 현재 재생 중인 비디오 찾기
-    const playlistItems = document.querySelectorAll("ytd-playlist-panel-video-renderer");
+    const playlistItems = document.querySelectorAll(
+      "ytd-playlist-panel-video-renderer"
+    );
     for (let i = 0; i < playlistItems.length; i++) {
       const item = playlistItems[i];
       // selected 속성이나 재생 표시기(▶) 확인
@@ -65,16 +213,21 @@ function findCurrentVideoIndex() {
 
 function calculatePlaylistTime() {
   let timeElements;
-  let isPlaylistPage = window.location.pathname.includes('/playlist');
+  let isPlaylistPage = window.location.pathname.includes("/playlist");
 
   if (isPlaylistPage) {
     // 플레이리스트 페이지 (/playlist URL)
-    const playlistContainer = document.querySelector('#contents') || 
-                             document.querySelector('ytd-playlist-video-list-renderer');
+    const playlistContainer =
+      document.querySelector("#contents") ||
+      document.querySelector("ytd-playlist-video-list-renderer");
     if (playlistContainer) {
-      timeElements = playlistContainer.querySelectorAll('.badge-shape-wiz__text');
+      timeElements = playlistContainer.querySelectorAll(
+        ".badge-shape-wiz__text"
+      );
     } else {
-      timeElements = document.querySelectorAll('ytd-playlist-video-renderer .badge-shape-wiz__text');
+      timeElements = document.querySelectorAll(
+        "ytd-playlist-video-renderer .badge-shape-wiz__text"
+      );
     }
   } else {
     // 플레이리스트 패널 (동영상 시청 중 오른쪽 패널)
@@ -125,9 +278,12 @@ function calculatePlaylistTime() {
 
   // 결과 출력
   if (isPlaylistPage) {
-    // 플레이리스트 페이지에서는 전체 재생시간만 표시
+    // 플레이리스트 페이지에서는 전체 재생시간을 UI에 표시
     console.log("=== YouTube 플레이리스트 정보 ===");
     console.log(`전체 재생시간: ${formatSecondsToTime(totalSeconds)}`);
+
+    // UI에 전체 재생시간 표시
+    displayTotalTimeInUI(totalSeconds);
   } else {
     // 플레이리스트 패널에서는 모든 정보 표시
     console.log("=== YouTube 플레이리스트 패널 정보 ===");

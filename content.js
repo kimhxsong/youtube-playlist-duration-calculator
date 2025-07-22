@@ -167,6 +167,90 @@ function displayTotalTimeInUI(totalSeconds) {
   }
 }
 
+function formatSecondsToTimeDigital(totalSeconds) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  // H:MM:SS 형식으로 표시 (분과 초만 2자리 패딩)
+  const formattedMinutes = minutes.toString().padStart(2, "0");
+  const formattedSeconds = seconds.toString().padStart(2, "0");
+
+  if (hours > 0) {
+    return `${hours}:${formattedMinutes}:${formattedSeconds}`;
+  } else {
+    return `${formattedMinutes}:${formattedSeconds}`;
+  }
+}
+
+function displayPlaylistPanelTimeInUI(
+  totalSeconds,
+  remainingSeconds,
+  currentIndex,
+  totalCount
+) {
+  // 기존 시간 표시 요소가 있으면 제거
+  const existingElement = document.getElementById("playlist-panel-time");
+  if (existingElement) {
+    existingElement.remove();
+  }
+
+  // "1 / 14" 형태의 텍스트를 포함하는 요소 찾기
+  let targetElement = null;
+
+  // 플레이리스트 패널 내에서 검색 - hidden이 아닌 실제 보이는 요소
+  const playlistPanel = document.querySelector("ytd-playlist-panel-renderer");
+  if (playlistPanel) {
+    // .index-message-wrapper 내의 yt-formatted-string 요소 찾기
+    const indexWrapper = playlistPanel.querySelector(".index-message-wrapper");
+    if (indexWrapper) {
+      const formattedStrings = indexWrapper.querySelectorAll(
+        "yt-formatted-string"
+      );
+      for (const element of formattedStrings) {
+        const text = element.textContent.trim();
+        // "숫자 / 숫자" 패턴 매치하고 hidden 속성이 없는 요소
+        if (text.match(/^\d+\s*\/\s*\d+$/) && !element.hasAttribute("hidden")) {
+          targetElement = element;
+          break;
+        }
+      }
+    }
+  }
+
+  if (targetElement) {
+    // 시간 표시 요소 생성
+    const timeElement = document.createElement("span");
+    timeElement.id = "playlist-panel-time";
+
+    // 타겟 요소(시블링)의 스타일 상속
+    const computedStyle = window.getComputedStyle(targetElement);
+    timeElement.style.cssText = `
+      color: ${computedStyle.color};
+      font-family: ${computedStyle.fontFamily};
+      font-size: ${computedStyle.fontSize};
+      font-weight: ${computedStyle.fontWeight};
+      line-height: ${computedStyle.lineHeight};
+      margin-left: auto;
+      padding-left: 8px;
+      float: right;
+    `;
+
+    // 시간 정보 표시 (시계 이모지 추가)
+    timeElement.textContent = `🕒 ${formatSecondsToTimeDigital(totalSeconds)}`;
+
+    // 타겟 요소 뒤에 추가 (같은 줄 오른쪽에 표시)
+    if (targetElement.nextSibling) {
+      targetElement.parentNode.insertBefore(
+        timeElement,
+        targetElement.nextSibling
+      );
+    } else {
+      targetElement.parentNode.appendChild(timeElement);
+    }
+  }
+}
+
 function findCurrentVideoIndex() {
   let isPlaylistPage = window.location.pathname.includes("/playlist");
 
@@ -191,24 +275,92 @@ function findCurrentVideoIndex() {
         return i;
       }
     }
-  } else {
-    // 플레이리스트 패널에서 현재 재생 중인 비디오 찾기
-    const playlistItems = document.querySelectorAll(
-      "ytd-playlist-panel-video-renderer"
-    );
-    for (let i = 0; i < playlistItems.length; i++) {
-      const item = playlistItems[i];
-      // selected 속성이나 재생 표시기(▶) 확인
-      if (
-        item.hasAttribute("selected") ||
-        item.querySelector("#index")?.textContent.includes("▶")
-      ) {
-        return i;
-      }
+  }
+
+  return 0; // 기본값으로 첫 번째 비디오
+}
+
+function findCurrentVideoIndexForPanel() {
+  // 플레이리스트 패널에서 현재 재생 중인 비디오 찾기
+  const playlistItems = document.querySelectorAll(
+    "ytd-playlist-panel-video-renderer"
+  );
+  for (let i = 0; i < playlistItems.length; i++) {
+    const item = playlistItems[i];
+    // selected 속성이나 재생 표시기(▶) 확인
+    if (
+      item.hasAttribute("selected") ||
+      item.querySelector("#index")?.textContent.includes("▶")
+    ) {
+      return i;
     }
   }
 
   return 0; // 기본값으로 첫 번째 비디오
+}
+
+function calculatePlaylistPanelTime() {
+  // 플레이리스트 패널 (동영상 시청 중 오른쪽 패널)
+  const playlistPanel = document.querySelector("ytd-playlist-panel-renderer");
+  let timeElements;
+  if (playlistPanel) {
+    timeElements = playlistPanel.querySelectorAll(".badge-shape-wiz__text");
+  } else {
+    timeElements = document.querySelectorAll(".badge-shape-wiz__text");
+  }
+
+  if (timeElements.length === 0) {
+    console.log("플레이리스트를 찾을 수 없습니다.");
+    return;
+  }
+
+  const videoTimes = [];
+  timeElements.forEach((element) => {
+    const timeText = element.textContent.trim();
+    const seconds = parseTimeToSeconds(timeText);
+    if (seconds > 0) {
+      videoTimes.push(seconds);
+    }
+  });
+
+  if (videoTimes.length === 0) {
+    console.log("비디오 시간을 파싱할 수 없습니다.");
+    return;
+  }
+
+  // 전체 재생시간 계산
+  const totalSeconds = videoTimes.reduce((sum, time) => sum + time, 0);
+
+  // 현재 비디오 인덱스 찾기 (플레이리스트 패널용)
+  const currentIndex = findCurrentVideoIndexForPanel();
+
+  // 시청한 시간 계산 (1~N번째 비디오의 시간 합, N은 현재 비디오 인덱스+1)
+  const watchedSeconds = videoTimes
+    .slice(0, currentIndex + 1)
+    .reduce((sum, time) => sum + time, 0);
+
+  // 남은 재생시간 계산 (전체시간 - 시청한 시간)
+  const remainingSeconds = totalSeconds - watchedSeconds;
+
+  // 진행률 계산 (시청한 시간 / 전체시간 * 100)
+  const progressPercentage =
+    totalSeconds > 0 ? ((watchedSeconds / totalSeconds) * 100).toFixed(1) : 0;
+
+  // 결과 출력
+  console.log("=== YouTube 플레이리스트 패널 정보 ===");
+  console.log(`전체 재생시간: ${formatSecondsToTime(totalSeconds)}`);
+  console.log(`남은 재생시간: ${formatSecondsToTime(remainingSeconds)}`);
+  console.log(`진행률: ${progressPercentage}%`);
+  console.log(`총 비디오 수: ${videoTimes.length}개`);
+  console.log(`현재 비디오: ${currentIndex + 1}번째`);
+
+  // 플레이리스트 패널 UI에 시간 정보 표시
+  displayPlaylistPanelTimeInUI(
+    totalSeconds,
+    remainingSeconds,
+    currentIndex + 1,
+    videoTimes.length
+  );
 }
 
 function calculatePlaylistTime() {
@@ -302,15 +454,21 @@ function runWhenReady() {
     return;
   }
 
-  // 플레이리스트 페이지인지 확인
-  if (
-    window.location.pathname.includes("/playlist") ||
-    window.location.search.includes("list=") ||
+  // 플레이리스트 페이지인지 확인 (/playlist 경로)
+  if (window.location.pathname.includes("/playlist")) {
+    // DOM이 완전히 로드될 때까지 대기
+    setTimeout(() => {
+      calculatePlaylistTime();
+    }, 2000);
+  }
+  // watch 페이지의 플레이리스트 패널인지 확인
+  else if (
+    window.location.search.includes("list=") &&
     document.querySelector("ytd-playlist-panel-renderer")
   ) {
     // DOM이 완전히 로드될 때까지 대기
     setTimeout(() => {
-      calculatePlaylistTime();
+      calculatePlaylistPanelTime();
     }, 2000);
   }
 }

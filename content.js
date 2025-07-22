@@ -90,9 +90,11 @@ function displayTotalTimeInUI(totalSeconds) {
   for (const selector of possibleSelectors) {
     const elements = document.querySelectorAll(selector);
     for (const element of elements) {
+      const text = element.textContent;
       if (
-        element.textContent.includes("동영상") &&
-        element.textContent.includes("개")
+        (text.includes("동영상") && text.includes("개")) ||
+        (text.includes("videos") && text.match(/\d+\s*videos?/)) ||
+        text.match(/\d+\s*(videos?|동영상)/)
       ) {
         targetContainer = element;
         break;
@@ -101,12 +103,17 @@ function displayTotalTimeInUI(totalSeconds) {
     if (targetContainer) break;
   }
 
-  // 대안: "동영상 XX개" 텍스트가 포함된 요소 직접 검색
+  // 대안: "동영상 XX개" 또는 "XX videos" 텍스트가 포함된 요소 직접 검색
   if (!targetContainer) {
     const allElements = document.querySelectorAll("*");
     for (const element of allElements) {
       const text = element.textContent.trim();
-      if (text.includes("동영상") && text.includes("개") && text.length < 50) {
+      if (
+        ((text.includes("동영상") && text.includes("개")) ||
+          text.match(/\d+\s*videos?/) ||
+          text.includes("video")) &&
+        text.length < 100
+      ) {
         targetContainer = element;
         break;
       }
@@ -310,7 +317,7 @@ function calculatePlaylistPanelTime() {
   }
 
   if (timeElements.length === 0) {
-    console.log("플레이리스트를 찾을 수 없습니다.");
+    console.log("Playlist not found.");
     return;
   }
 
@@ -324,7 +331,7 @@ function calculatePlaylistPanelTime() {
   });
 
   if (videoTimes.length === 0) {
-    console.log("비디오 시간을 파싱할 수 없습니다.");
+    console.log("Could not parse video times.");
     return;
   }
 
@@ -346,13 +353,13 @@ function calculatePlaylistPanelTime() {
   const progressPercentage =
     totalSeconds > 0 ? ((watchedSeconds / totalSeconds) * 100).toFixed(1) : 0;
 
-  // 결과 출력
-  console.log("=== YouTube 플레이리스트 패널 정보 ===");
-  console.log(`전체 재생시간: ${formatSecondsToTime(totalSeconds)}`);
-  console.log(`남은 재생시간: ${formatSecondsToTime(remainingSeconds)}`);
-  console.log(`진행률: ${progressPercentage}%`);
-  console.log(`총 비디오 수: ${videoTimes.length}개`);
-  console.log(`현재 비디오: ${currentIndex + 1}번째`);
+  // Output results
+  console.log("=== YouTube Playlist Panel Info ===");
+  console.log(`Total duration: ${formatSecondsToTime(totalSeconds)}`);
+  console.log(`Remaining time: ${formatSecondsToTime(remainingSeconds)}`);
+  console.log(`Progress: ${progressPercentage}%`);
+  console.log(`Total videos: ${videoTimes.length}`);
+  console.log(`Current video: ${currentIndex + 1}`);
 
   // 플레이리스트 패널 UI에 시간 정보 표시
   displayPlaylistPanelTimeInUI(
@@ -392,7 +399,7 @@ function calculatePlaylistTime() {
   }
 
   if (timeElements.length === 0) {
-    console.log("플레이리스트를 찾을 수 없습니다.");
+    console.log("Playlist not found.");
     return;
   }
 
@@ -406,7 +413,7 @@ function calculatePlaylistTime() {
   });
 
   if (videoTimes.length === 0) {
-    console.log("비디오 시간을 파싱할 수 없습니다.");
+    console.log("Could not parse video times.");
     return;
   }
 
@@ -428,22 +435,22 @@ function calculatePlaylistTime() {
   const progressPercentage =
     totalSeconds > 0 ? ((watchedSeconds / totalSeconds) * 100).toFixed(1) : 0;
 
-  // 결과 출력
+  // Output results
   if (isPlaylistPage) {
-    // 플레이리스트 페이지에서는 전체 재생시간을 UI에 표시
-    console.log("=== YouTube 플레이리스트 정보 ===");
-    console.log(`전체 재생시간: ${formatSecondsToTime(totalSeconds)}`);
+    // Display total duration in UI for playlist page
+    console.log("=== YouTube Playlist Info ===");
+    console.log(`Total duration: ${formatSecondsToTime(totalSeconds)}`);
 
-    // UI에 전체 재생시간 표시
+    // Display total duration in UI
     displayTotalTimeInUI(totalSeconds);
   } else {
-    // 플레이리스트 패널에서는 모든 정보 표시
-    console.log("=== YouTube 플레이리스트 패널 정보 ===");
-    console.log(`전체 재생시간: ${formatSecondsToTime(totalSeconds)}`);
-    console.log(`남은 재생시간: ${formatSecondsToTime(remainingSeconds)}`);
-    console.log(`진행률: ${progressPercentage}%`);
-    console.log(`총 비디오 수: ${videoTimes.length}개`);
-    console.log(`현재 비디오: ${currentIndex + 1}번째`);
+    // Display all info for playlist panel
+    console.log("=== YouTube Playlist Panel Info ===");
+    console.log(`Total duration: ${formatSecondsToTime(totalSeconds)}`);
+    console.log(`Remaining time: ${formatSecondsToTime(remainingSeconds)}`);
+    console.log(`Progress: ${progressPercentage}%`);
+    console.log(`Total videos: ${videoTimes.length}`);
+    console.log(`Current video: ${currentIndex + 1}`);
   }
 }
 
@@ -475,13 +482,88 @@ function runWhenReady() {
 
 // 페이지 변경 감지 (YouTube SPA 특성상 필요)
 let lastUrl = location.href;
-new MutationObserver(() => {
+let updateTimer = null;
+
+const observer = new MutationObserver(() => {
   const url = location.href;
+  
+  // URL 변경 감지
   if (url !== lastUrl) {
     lastUrl = url;
-    setTimeout(runWhenReady, 1000);
+    clearTimeout(updateTimer);
+    updateTimer = setTimeout(runWhenReady, 1000);
+    return;
   }
-}).observe(document, { subtree: true, childList: true });
+  
+  // 플레이리스트 페이지에서 동적 콘텐츠 변경 감지
+  if (url.includes("/playlist") || (url.includes("list=") && url.includes("/watch"))) {
+    // 기존 타이머를 취소하고 새로운 타이머 설정 (디바운싱)
+    clearTimeout(updateTimer);
+    updateTimer = setTimeout(() => {
+      // DOM이 안정화될 때까지 추가 대기
+      setTimeout(runWhenReady, 500);
+    }, 1000);
+  }
+});
+
+observer.observe(document, { 
+  subtree: true, 
+  childList: true,
+  attributes: true,
+  attributeFilter: ['class', 'style', 'hidden']
+});
+
+// 주기적 업데이트 (최후의 수단)
+let periodicUpdateInterval = null;
+
+function startPeriodicUpdate() {
+  if (periodicUpdateInterval) {
+    clearInterval(periodicUpdateInterval);
+  }
+  
+  // 플레이리스트 관련 페이지에서만 주기적 업데이트
+  if (location.href.includes("/playlist") || 
+      (location.href.includes("list=") && location.href.includes("/watch"))) {
+    periodicUpdateInterval = setInterval(() => {
+      // 기존 시간 표시가 없거나 잘못된 경우에만 업데이트
+      const existingTime = document.getElementById("playlist-total-time") || 
+                          document.getElementById("playlist-panel-time");
+      
+      if (!existingTime) {
+        runWhenReady();
+      }
+    }, 5000); // 5초마다 체크
+  }
+}
 
 // 초기 실행
 runWhenReady();
+startPeriodicUpdate();
+
+// URL 변경 시 주기적 업데이트도 재시작
+const originalPushState = history.pushState;
+const originalReplaceState = history.replaceState;
+
+history.pushState = function(...args) {
+  originalPushState.apply(history, args);
+  setTimeout(() => {
+    runWhenReady();
+    startPeriodicUpdate();
+  }, 1000);
+};
+
+history.replaceState = function(...args) {
+  originalReplaceState.apply(history, args);
+  setTimeout(() => {
+    runWhenReady();
+    startPeriodicUpdate();
+  }, 1000);
+};
+
+// popstate 이벤트도 처리 (뒤로가기/앞으로가기)
+window.addEventListener('popstate', () => {
+  setTimeout(() => {
+    runWhenReady();
+    startPeriodicUpdate();
+  }, 1000);
+});

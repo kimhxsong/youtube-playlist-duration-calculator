@@ -1,5 +1,7 @@
 // YouTube 플레이리스트 총 재생시간 계산 익스텐션
 
+// 팝업 표시 기능은 popup.html/popup.js로 이동됨
+
 function detectLanguage() {
   // YouTube 페이지의 언어 감지
   const htmlLang = document.documentElement.lang;
@@ -317,7 +319,6 @@ function calculatePlaylistPanelTime() {
   }
 
   if (timeElements.length === 0) {
-    console.log("Playlist not found.");
     return;
   }
 
@@ -331,7 +332,6 @@ function calculatePlaylistPanelTime() {
   });
 
   if (videoTimes.length === 0) {
-    console.log("Could not parse video times.");
     return;
   }
 
@@ -353,13 +353,7 @@ function calculatePlaylistPanelTime() {
   const progressPercentage =
     totalSeconds > 0 ? ((watchedSeconds / totalSeconds) * 100).toFixed(1) : 0;
 
-  // Output results
-  console.log("=== YouTube Playlist Panel Info ===");
-  console.log(`Total duration: ${formatSecondsToTime(totalSeconds)}`);
-  console.log(`Remaining time: ${formatSecondsToTime(remainingSeconds)}`);
-  console.log(`Progress: ${progressPercentage}%`);
-  console.log(`Total videos: ${videoTimes.length}`);
-  console.log(`Current video: ${currentIndex + 1}`);
+  // Playlist info available via popup
 
   // 플레이리스트 패널 UI에 시간 정보 표시
   displayPlaylistPanelTimeInUI(
@@ -399,7 +393,6 @@ function calculatePlaylistTime() {
   }
 
   if (timeElements.length === 0) {
-    console.log("Playlist not found.");
     return;
   }
 
@@ -413,7 +406,6 @@ function calculatePlaylistTime() {
   });
 
   if (videoTimes.length === 0) {
-    console.log("Could not parse video times.");
     return;
   }
 
@@ -435,23 +427,12 @@ function calculatePlaylistTime() {
   const progressPercentage =
     totalSeconds > 0 ? ((watchedSeconds / totalSeconds) * 100).toFixed(1) : 0;
 
-  // Output results
+  // Show results
   if (isPlaylistPage) {
     // Display total duration in UI for playlist page
-    console.log("=== YouTube Playlist Info ===");
-    console.log(`Total duration: ${formatSecondsToTime(totalSeconds)}`);
-
-    // Display total duration in UI
     displayTotalTimeInUI(totalSeconds);
-  } else {
-    // Display all info for playlist panel
-    console.log("=== YouTube Playlist Panel Info ===");
-    console.log(`Total duration: ${formatSecondsToTime(totalSeconds)}`);
-    console.log(`Remaining time: ${formatSecondsToTime(remainingSeconds)}`);
-    console.log(`Progress: ${progressPercentage}%`);
-    console.log(`Total videos: ${videoTimes.length}`);
-    console.log(`Current video: ${currentIndex + 1}`);
   }
+  // Playlist info available via extension popup
 }
 
 // 페이지 로드 완료 후 실행

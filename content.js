@@ -1,9 +1,7 @@
-// YouTube 플레이리스트 총 재생시간 계산 익스텐션
-
-// 팝업 표시 기능은 popup.html/popup.js로 이동됨
+// YouTube Playlist Total Duration Calculator Extension
 
 function detectLanguage() {
-  // YouTube 페이지의 언어 감지
+  // Detect YouTube page language
   const htmlLang = document.documentElement.lang;
   if (htmlLang && htmlLang.startsWith("ko")) {
     return "ko";
@@ -40,14 +38,14 @@ function getLocalizedText(lang) {
 }
 
 function parseTimeToSeconds(timeString) {
-  // "4:14", "1:30:45" 형태의 시간을 초 단위로 변환
+  // Convert time format "4:14" or "1:30:45" to seconds
   const parts = timeString.split(":").map(Number);
 
   if (parts.length === 2) {
-    // MM:SS 형태
+    // MM:SS format
     return parts[0] * 60 + parts[1];
   } else if (parts.length === 3) {
-    // HH:MM:SS 형태
+    // HH:MM:SS format
     return parts[0] * 3600 + parts[1] * 60 + parts[2];
   }
 
@@ -59,7 +57,6 @@ function formatSecondsToTime(totalSeconds) {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
-  // 언어별 단위 텍스트
   const lang = detectLanguage();
   const units = getTimeUnits(lang);
 
@@ -71,16 +68,15 @@ function formatSecondsToTime(totalSeconds) {
 }
 
 function displayTotalTimeInUI(totalSeconds) {
-  // 기존 시간 표시 요소가 있으면 제거
+  // Remove existing time display element
   const existingElement = document.getElementById("playlist-total-time");
   if (existingElement) {
     existingElement.remove();
   }
 
-  // 플레이리스트 메타데이터 영역 찾기 (스크린샷의 "동영상 14개" 부분)
+  // Find playlist metadata area
   let targetContainer = null;
 
-  // 다양한 선택자로 시도
   const possibleSelectors = [
     "ytd-playlist-header-renderer #stats",
     "ytd-playlist-header-renderer .metadata-stats",
@@ -105,7 +101,7 @@ function displayTotalTimeInUI(totalSeconds) {
     if (targetContainer) break;
   }
 
-  // 대안: "동영상 XX개" 또는 "XX videos" 텍스트가 포함된 요소 직접 검색
+  // Fallback: Find elements containing video count text
   if (!targetContainer) {
     const allElements = document.querySelectorAll("*");
     for (const element of allElements) {
@@ -123,11 +119,11 @@ function displayTotalTimeInUI(totalSeconds) {
   }
 
   if (targetContainer) {
-    // 전체 재생시간 표시 요소 생성
+    // Create total duration display element
     const timeElement = document.createElement("div");
     timeElement.id = "playlist-total-time";
 
-    // 시블링 요소의 computed style 복사
+    // Copy computed styles from sibling element
     const computedStyle = window.getComputedStyle(targetContainer);
     timeElement.style.cssText = `
       color: ${computedStyle.color};
@@ -139,7 +135,6 @@ function displayTotalTimeInUI(totalSeconds) {
       display: block;
     `;
 
-    // 원본 클래스도 복사 (추가 스타일링을 위해)
     if (targetContainer.className) {
       timeElement.className = targetContainer.className;
     }
@@ -150,13 +145,13 @@ function displayTotalTimeInUI(totalSeconds) {
       localizedText.totalPlaytime
     } ${formatSecondsToTime(totalSeconds)}`;
 
-    // "동영상 XX개" 요소 아래에 새로운 줄로 추가
+    // Insert after the video count element
     targetContainer.parentNode.insertBefore(
       timeElement,
       targetContainer.nextSibling
     );
   } else {
-    // 최후의 수단: 헤더 영역에 별도 div로 추가
+    // Fallback: Add to header area
     const header =
       document.querySelector("ytd-playlist-header-renderer") ||
       document.querySelector("#header");
@@ -181,7 +176,7 @@ function formatSecondsToTimeDigital(totalSeconds) {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
-  // H:MM:SS 형식으로 표시 (분과 초만 2자리 패딩)
+  // Display in H:MM:SS format (pad minutes and seconds to 2 digits)
   const formattedMinutes = minutes.toString().padStart(2, "0");
   const formattedSeconds = seconds.toString().padStart(2, "0");
 
@@ -198,19 +193,17 @@ function displayPlaylistPanelTimeInUI(
   currentIndex,
   totalCount
 ) {
-  // 기존 시간 표시 요소가 있으면 제거
+  // Remove existing time display element
   const existingElement = document.getElementById("playlist-panel-time");
   if (existingElement) {
     existingElement.remove();
   }
 
-  // "1 / 14" 형태의 텍스트를 포함하는 요소 찾기
+  // Find element containing "1 / 14" format text
   let targetElement = null;
 
-  // 플레이리스트 패널 내에서 검색 - hidden이 아닌 실제 보이는 요소
   const playlistPanel = document.querySelector("ytd-playlist-panel-renderer");
   if (playlistPanel) {
-    // .index-message-wrapper 내의 yt-formatted-string 요소 찾기
     const indexWrapper = playlistPanel.querySelector(".index-message-wrapper");
     if (indexWrapper) {
       const formattedStrings = indexWrapper.querySelectorAll(
@@ -218,7 +211,7 @@ function displayPlaylistPanelTimeInUI(
       );
       for (const element of formattedStrings) {
         const text = element.textContent.trim();
-        // "숫자 / 숫자" 패턴 매치하고 hidden 속성이 없는 요소
+        // Match "number / number" pattern without hidden attribute
         if (text.match(/^\d+\s*\/\s*\d+$/) && !element.hasAttribute("hidden")) {
           targetElement = element;
           break;
@@ -228,11 +221,11 @@ function displayPlaylistPanelTimeInUI(
   }
 
   if (targetElement) {
-    // 시간 표시 요소 생성
+    // Create time display element
     const timeElement = document.createElement("span");
     timeElement.id = "playlist-panel-time";
 
-    // 타겟 요소(시블링)의 스타일 상속
+    // Inherit styles from target element
     const computedStyle = window.getComputedStyle(targetElement);
     timeElement.style.cssText = `
       color: ${computedStyle.color};
@@ -245,10 +238,10 @@ function displayPlaylistPanelTimeInUI(
       float: right;
     `;
 
-    // 시간 정보 표시 (시계 이모지 추가)
+    // Display time with clock emoji
     timeElement.textContent = `🕒 ${formatSecondsToTimeDigital(totalSeconds)}`;
 
-    // 타겟 요소 뒤에 추가 (같은 줄 오른쪽에 표시)
+    // Add after target element (on same line, right side)
     if (targetElement.nextSibling) {
       targetElement.parentNode.insertBefore(
         timeElement,
@@ -264,13 +257,12 @@ function findCurrentVideoIndex() {
   let isPlaylistPage = window.location.pathname.includes("/playlist");
 
   if (isPlaylistPage) {
-    // 플레이리스트 페이지에서 현재 재생 중인 비디오 찾기
+    // Find currently playing video in playlist page
     const playlistVideos = document.querySelectorAll(
       "ytd-playlist-video-renderer"
     );
     for (let i = 0; i < playlistVideos.length; i++) {
       const item = playlistVideos[i];
-      // "지금 재생 중" 텍스트나 재생 상태 확인
       if (
         item.querySelector(
           "ytd-thumbnail-overlay-now-playing-renderer:not([hidden])"
@@ -286,17 +278,17 @@ function findCurrentVideoIndex() {
     }
   }
 
-  return 0; // 기본값으로 첫 번째 비디오
+  return 0;
 }
 
 function findCurrentVideoIndexForPanel() {
-  // 플레이리스트 패널에서 현재 재생 중인 비디오 찾기
+  // Find currently playing video in playlist panel
   const playlistItems = document.querySelectorAll(
     "ytd-playlist-panel-video-renderer"
   );
   for (let i = 0; i < playlistItems.length; i++) {
     const item = playlistItems[i];
-    // selected 속성이나 재생 표시기(▶) 확인
+    // Check for selected attribute or play indicator (▶)
     if (
       item.hasAttribute("selected") ||
       item.querySelector("#index")?.textContent.includes("▶")
@@ -305,11 +297,11 @@ function findCurrentVideoIndexForPanel() {
     }
   }
 
-  return 0; // 기본값으로 첫 번째 비디오
+  return 0;
 }
 
 function calculatePlaylistPanelTime() {
-  // 플레이리스트 패널 (동영상 시청 중 오른쪽 패널)
+  // Playlist panel (right panel during video watching)
   const playlistPanel = document.querySelector("ytd-playlist-panel-renderer");
   let timeElements;
   if (playlistPanel) {
@@ -335,27 +327,24 @@ function calculatePlaylistPanelTime() {
     return;
   }
 
-  // 전체 재생시간 계산
   const totalSeconds = videoTimes.reduce((sum, time) => sum + time, 0);
 
-  // 현재 비디오 인덱스 찾기 (플레이리스트 패널용)
+  // Find current video index for playlist panel
   const currentIndex = findCurrentVideoIndexForPanel();
 
-  // 시청한 시간 계산 (1~N번째 비디오의 시간 합, N은 현재 비디오 인덱스+1)
+  // Calculate watched time (sum of videos 1~N, where N is current video index+1)
   const watchedSeconds = videoTimes
     .slice(0, currentIndex + 1)
     .reduce((sum, time) => sum + time, 0);
 
-  // 남은 재생시간 계산 (전체시간 - 시청한 시간)
+  // Calculate remaining time (total time - watched time)
   const remainingSeconds = totalSeconds - watchedSeconds;
 
-  // 진행률 계산 (시청한 시간 / 전체시간 * 100)
+  // Calculate progress percentage (watched time / total time * 100)
   const progressPercentage =
     totalSeconds > 0 ? ((watchedSeconds / totalSeconds) * 100).toFixed(1) : 0;
 
-  // Playlist info available via popup
-
-  // 플레이리스트 패널 UI에 시간 정보 표시
+  // Display time information in playlist panel UI
   displayPlaylistPanelTimeInUI(
     totalSeconds,
     remainingSeconds,
@@ -369,7 +358,7 @@ function calculatePlaylistTime() {
   let isPlaylistPage = window.location.pathname.includes("/playlist");
 
   if (isPlaylistPage) {
-    // 플레이리스트 페이지 (/playlist URL)
+    // Playlist page (/playlist URL)
     const playlistContainer =
       document.querySelector("#contents") ||
       document.querySelector("ytd-playlist-video-list-renderer");
@@ -383,7 +372,7 @@ function calculatePlaylistTime() {
       );
     }
   } else {
-    // 플레이리스트 패널 (동영상 시청 중 오른쪽 패널)
+    // Playlist panel (right panel during video watching)
     const playlistPanel = document.querySelector("ytd-playlist-panel-renderer");
     if (playlistPanel) {
       timeElements = playlistPanel.querySelectorAll(".badge-shape-wiz__text");
@@ -409,123 +398,145 @@ function calculatePlaylistTime() {
     return;
   }
 
-  // 전체 재생시간 계산
   const totalSeconds = videoTimes.reduce((sum, time) => sum + time, 0);
 
-  // 현재 비디오 인덱스 찾기
+  // Find current video index
   const currentIndex = findCurrentVideoIndex();
 
-  // 시청한 시간 계산 (1~N번째 비디오의 시간 합, N은 현재 비디오 인덱스+1)
+  // Calculate watched time (sum of videos 1~N, where N is current video index+1)
   const watchedSeconds = videoTimes
     .slice(0, currentIndex + 1)
     .reduce((sum, time) => sum + time, 0);
 
-  // 남은 재생시간 계산 (전체시간 - 시청한 시간)
+  // Calculate remaining time (total time - watched time)
   const remainingSeconds = totalSeconds - watchedSeconds;
 
-  // 진행률 계산 (시청한 시간 / 전체시간 * 100)
+  // Calculate progress percentage (watched time / total time * 100)
   const progressPercentage =
     totalSeconds > 0 ? ((watchedSeconds / totalSeconds) * 100).toFixed(1) : 0;
 
-  // Show results
   if (isPlaylistPage) {
     // Display total duration in UI for playlist page
     displayTotalTimeInUI(totalSeconds);
   }
-  // Playlist info available via extension popup
 }
 
-// 페이지 로드 완료 후 실행
+// Execute after page load completion
 function runWhenReady() {
-  // YouTube 페이지인지 확인
+  // Check if it's YouTube page
   if (!window.location.hostname.includes("youtube.com")) {
     return;
   }
 
-  // 플레이리스트 페이지인지 확인 (/playlist 경로)
+  // Check if it's playlist page (/playlist path)
   if (window.location.pathname.includes("/playlist")) {
-    // DOM이 완전히 로드될 때까지 대기
+    // Wait until DOM is fully loaded
     setTimeout(() => {
       calculatePlaylistTime();
     }, 2000);
   }
-  // watch 페이지의 플레이리스트 패널인지 확인
+  // Check if it's watch page with playlist panel
   else if (
     window.location.search.includes("list=") &&
     document.querySelector("ytd-playlist-panel-renderer")
   ) {
-    // DOM이 완전히 로드될 때까지 대기
+    // Wait until DOM is fully loaded
     setTimeout(() => {
       calculatePlaylistPanelTime();
     }, 2000);
   }
 }
 
-// 페이지 변경 감지 (YouTube SPA 특성상 필요)
+// Detect page changes (necessary for YouTube SPA)
 let lastUrl = location.href;
 let updateTimer = null;
 
 const observer = new MutationObserver(() => {
   const url = location.href;
-  
-  // URL 변경 감지
+
+  // Detect URL changes
   if (url !== lastUrl) {
     lastUrl = url;
     clearTimeout(updateTimer);
     updateTimer = setTimeout(runWhenReady, 1000);
     return;
   }
-  
-  // 플레이리스트 페이지에서 동적 콘텐츠 변경 감지
-  if (url.includes("/playlist") || (url.includes("list=") && url.includes("/watch"))) {
-    // 기존 타이머를 취소하고 새로운 타이머 설정 (디바운싱)
+
+  // Detect dynamic content changes on playlist pages
+  if (
+    url.includes("/playlist") ||
+    (url.includes("list=") && url.includes("/watch"))
+  ) {
+    // Cancel existing timer and set new timer (debouncing)
     clearTimeout(updateTimer);
     updateTimer = setTimeout(() => {
-      // DOM이 안정화될 때까지 추가 대기
+      // Additional wait for DOM stabilization
       setTimeout(runWhenReady, 500);
     }, 1000);
   }
 });
 
-observer.observe(document, { 
-  subtree: true, 
+observer.observe(document, {
+  subtree: true,
   childList: true,
   attributes: true,
-  attributeFilter: ['class', 'style', 'hidden']
+  attributeFilter: ["class", "style", "hidden"],
 });
 
-// 주기적 업데이트 (최후의 수단)
+// Periodic update (last resort)
 let periodicUpdateInterval = null;
 
 function startPeriodicUpdate() {
   if (periodicUpdateInterval) {
     clearInterval(periodicUpdateInterval);
   }
-  
-  // 플레이리스트 관련 페이지에서만 주기적 업데이트
-  if (location.href.includes("/playlist") || 
-      (location.href.includes("list=") && location.href.includes("/watch"))) {
-    periodicUpdateInterval = setInterval(() => {
-      // 기존 시간 표시가 없거나 잘못된 경우에만 업데이트
-      const existingTime = document.getElementById("playlist-total-time") || 
-                          document.getElementById("playlist-panel-time");
-      
-      if (!existingTime) {
-        runWhenReady();
-      }
-    }, 5000); // 5초마다 체크
+
+  if (
+    location.href.includes("/playlist") ||
+    (location.href.includes("list=") && location.href.includes("/watch"))
+  ) {
+    let checkCount = 0;
+    const maxFastChecks = 10;
+
+    function createInterval(interval) {
+      return setInterval(() => {
+        const hasTimeDisplay =
+          document.getElementById("playlist-total-time") ||
+          document.getElementById("playlist-panel-time");
+
+        if (!hasTimeDisplay) {
+          runWhenReady();
+        }
+
+        checkCount++;
+
+        if (hasTimeDisplay && checkCount < maxFastChecks) {
+          clearInterval(periodicUpdateInterval);
+          periodicUpdateInterval = createInterval(10000);
+        } else if (
+          checkCount >= maxFastChecks &&
+          periodicUpdateInterval &&
+          interval === 1000
+        ) {
+          clearInterval(periodicUpdateInterval);
+          periodicUpdateInterval = createInterval(10000);
+        }
+      }, interval);
+    }
+
+    periodicUpdateInterval = createInterval(1000);
   }
 }
 
-// 초기 실행
+// Initial execution
 runWhenReady();
 startPeriodicUpdate();
 
-// URL 변경 시 주기적 업데이트도 재시작
+// Restart periodic update when URL changes
 const originalPushState = history.pushState;
 const originalReplaceState = history.replaceState;
 
-history.pushState = function(...args) {
+history.pushState = function (...args) {
   originalPushState.apply(history, args);
   setTimeout(() => {
     runWhenReady();
@@ -533,7 +544,7 @@ history.pushState = function(...args) {
   }, 1000);
 };
 
-history.replaceState = function(...args) {
+history.replaceState = function (...args) {
   originalReplaceState.apply(history, args);
   setTimeout(() => {
     runWhenReady();
@@ -541,8 +552,8 @@ history.replaceState = function(...args) {
   }, 1000);
 };
 
-// popstate 이벤트도 처리 (뒤로가기/앞으로가기)
-window.addEventListener('popstate', () => {
+// Handle popstate events (back/forward navigation)
+window.addEventListener("popstate", () => {
   setTimeout(() => {
     runWhenReady();
     startPeriodicUpdate();

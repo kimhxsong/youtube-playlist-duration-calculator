@@ -4,9 +4,19 @@
   "version": "1.0",
   "description": "Calculate and display total duration of YouTube playlists and courses with progress tracking.",
   "permissions": ["activeTab", "scripting"],
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "YouTube Playlist Duration Calculator"
+    "default_title": "YouTube Playlist Duration Calculator",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
   },
   "content_scripts": [{
     "matches": ["*://*.youtube.com/*"],

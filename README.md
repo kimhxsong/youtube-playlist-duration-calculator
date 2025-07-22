@@ -1,4 +1,4 @@
-# YouTube Playlist Duration Calculator
+# <img src="icon.png" width="48" align="left">YouTube Playlist Duration Calculator
 
 Calculate and display total duration of YouTube playlists with detailed progress tracking.
 
